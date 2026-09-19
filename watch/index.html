@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Gehaltsuhr</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gehaltsuhr">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000; --ink:#EAF0F4; --muted:#7C8AA0; --mint:#7CC7AE; --brass:#E0B84A; --rule:#232C3E;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
+  font-family:"Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+  -webkit-user-select:none; user-select:none; touch-action:manipulation;
+}
+.face{
+  position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; padding:14%; gap:.3rem;
+}
+.label{font-size:.72rem; font-weight:600; color:var(--muted); letter-spacing:.02em}
+.odo{font-weight:800; letter-spacing:-.03em; white-space:nowrap; line-height:1; font-size:clamp(1.4rem,9.5vw,2.4rem)}
+.col,.sep{display:inline-block; height:1em; line-height:1; vertical-align:top}
+.col{overflow:hidden;
+  -webkit-mask-image:linear-gradient(transparent, #000 14%, #000 86%, transparent);
+          mask-image:linear-gradient(transparent, #000 14%, #000 86%, transparent)}
+.strip{display:block; will-change:transform}
+.strip span{display:block; height:1em; text-align:center}
+.col.sub{color:var(--mint); font-size:.72em}
+.sep.cur{margin-left:.15em; font-weight:600; font-size:.8em; color:var(--muted)}
+.rate{font-size:.78rem; color:var(--muted); margin-top:.1rem}
+.rate b{color:var(--mint); font-weight:600}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--rule); margin-top:.35rem; transition:background .3s}
+.dot.on{background:var(--mint)}
+
+.settings{
+  position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column;
+  align-items:stretch; justify-content:center; gap:.6rem; padding:16% 12%; overflow-y:auto;
+}
+.settings[hidden]{display:none}
+.field{display:flex; flex-direction:column; gap:.15rem}
+.field span{font-size:.68rem; color:var(--muted)}
+.field input{
+  font:inherit; font-weight:700; font-size:1rem; color:var(--ink); background:var(--rule);
+  border:0; border-radius:10px; padding:.4rem .55rem; width:100%; text-align:center;
+}
+.field input[type="time"], .field input[type="date"]{font-size:.85rem}
+.modes{display:flex; gap:.4rem; margin-top:.1rem}
+.modes button{
+  flex:1; font:inherit; font-weight:600; font-size:.68rem; border:0; border-radius:8px;
+  padding:.4rem .2rem; background:var(--rule); color:var(--ink);
+}
+.modes button[aria-pressed="true"]{background:var(--mint); color:#0A1410}
+.done{
+  margin-top:.4rem; font:inherit; font-weight:700; font-size:.85rem; border:0; border-radius:10px;
+  padding:.5rem; background:var(--brass); color:#2A2105;
+}
+.hint{font-size:.6rem; color:var(--muted); text-align:center; margin-top:.2rem}
+</style>
+</head>
+<body>
+
+<div class="face" id="face">
+  <div class="label" id="label">diesen Monat</div>
+  <div class="odo" id="odo" aria-hidden="true"></div>
+  <p class="hint" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)" id="odoText"></p>
+  <div class="rate" id="rate"></div>
+  <div class="dot" id="dot" aria-hidden="true"></div>
+</div>
+
+<div class="settings" id="settings" hidden>
+  <div class="field"><span>Gehalt/Monat (€)</span><input id="salary" type="text" inputmode="decimal"></div>
+  <div class="field"><span>Std./Woche</span><input id="hours" type="text" inputmode="numeric"></div>
+  <div class="field"><span>Arbeitsbeginn</span><input id="start" type="time"></div>
+  <div class="modes" role="group" aria-label="Wie gezählt wird">
+    <button type="button" data-mode="work">Arbeitszeit</button>
+    <button type="button" data-mode="always">Rund um die Uhr</button>
+  </div>
+  <button type="button" class="done" id="done">Fertig</button>
+  <p class="hint">Zahl lang drücken, um dies wieder zu öffnen.</p>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const state = { salary: 0, hours: 40, mode: 'work', start: '09:00' };
+  try {
+    const saved = JSON.parse(localStorage.getItem('gehaltsuhr') || 'null');
+    if (saved && typeof saved === 'object') Object.assign(state, saved);
+  } catch (e) {}
+  function save(){ try { localStorage.setItem('gehaltsuhr', JSON.stringify(state)); } catch (e) {} }
+
+  const eur2 = new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR' });
+  const plain = new Intl.NumberFormat('de-DE', { maximumFractionDigits:2 });
+
+  function parseNum(str){
+    let s = String(str).replace(/[\s€]/g, '');
+    if (/^\d+\.\d{1,2}$/.test(s)) return parseFloat(s);
+    s = s.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return isFinite(n) && n > 0 ? n : 0;
+  }
+  function startHM(){ const [h, m] = (state.start || '09:00').split(':').map(Number); return [h || 0, m || 0]; }
+  function dayMs(){ return Math.min(Math.max(state.hours || 40, 1), 120) / 5 * 3600000; }
+
+  function monthInfo(y, m){
+    const a = new Date(y, m, 1).getTime(), b = new Date(y, m + 1, 1).getTime();
+    const days = new Date(y, m + 1, 0).getDate();
+    let workdays = 0;
+    for (let d = 1; d <= days; d++){ const w = new Date(y, m, d).getDay(); if (w !== 0 && w !== 6) workdays++; }
+    return { a, b, days, workdays };
+  }
+  function monthPay(y, m, from, to){
+    const info = monthInfo(y, m);
+    const A = Math.max(from, info.a), B = Math.min(to, info.b);
+    if (B <= A || !(state.salary > 0)) return 0;
+    if (state.mode === 'always') return state.salary * (B - A) / (info.b - info.a);
+    const [sh, sm] = startHM(), len = dayMs();
+    let worked = 0;
+    for (let d = 1; d <= info.days; d++){
+      const w = new Date(y, m, d).getDay();
+      if (w === 0 || w === 6) continue;
+      const ws = new Date(y, m, d, sh, sm).getTime(), we = ws + len;
+      worked += Math.max(0, Math.min(we, B) - Math.max(ws, A));
+    }
+    return info.workdays ? state.salary * worked / (info.workdays * len) : 0;
+  }
+  function rates(now){
+    const y = now.getFullYear(), m = now.getMonth(), info = monthInfo(y, m);
+    if (state.mode === 'always'){
+      const sec = state.salary / ((info.b - info.a) / 1000);
+      return { sec, hour: sec*3600 };
+    }
+    const hour = state.salary / (info.workdays * dayMs() / 3600000);
+    return { sec: hour/3600, hour };
+  }
+  function isWorking(now){
+    if (state.mode === 'always') return state.salary > 0;
+    const w = now.getDay(); if (w === 0 || w === 6) return false;
+    const [sh, sm] = startHM();
+    const ws = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm).getTime();
+    const we = ws + dayMs(), t = now.getTime();
+    return state.salary > 0 && t >= ws && t < we;
+  }
+
+  function makeOdo(el, decimals, subFrom){
+    let built = null, cols = [];
+    function addSep(ch, cls){ const s = document.createElement('span'); s.className = 'sep' + (cls ? ' ' + cls : ''); s.textContent = ch; el.appendChild(s); }
+    function addCol(place, cls){
+      const c = document.createElement('span'); c.className = 'col' + (cls ? ' ' + cls : '');
+      const strip = document.createElement('span'); strip.className = 'strip';
+      for (let d = 0; d <= 10; d++){ const x = document.createElement('span'); x.textContent = d % 10; strip.appendChild(x); }
+      c.appendChild(strip); el.appendChild(c); cols.push({ place, strip });
+    }
+    function build(n){
+      el.innerHTML = ''; cols = [];
+      for (let i = n - 1; i >= 0; i--){ addCol(Math.pow(10, i)); if (i > 0 && i % 3 === 0) addSep('.'); }
+      addSep(',');
+      for (let i = 1; i <= decimals; i++) addCol(Math.pow(10, -i), i >= subFrom ? 'sub' : '');
+      addSep('€', 'cur'); built = n;
+    }
+    return function render(v){
+      const n = Math.max(1, String(Math.floor(v)).length);
+      if (n !== built) build(n);
+      const last = cols.length - 1;
+      for (let i = 0; i < cols.length; i++){
+        const c = cols[i], u = v / c.place + 1e-9, fl = Math.floor(u), d = fl % 10, frac = u - fl;
+        let shift = d;
+        if (!reduce){ if (i === last) shift = d + frac; else if (frac > 0.9) shift = d + (frac - 0.9) * 10; }
+        c.strip.style.transform = 'translateY(' + (-shift) + 'em)';
+      }
+    };
+  }
+  const renderOdo = makeOdo($('odo'), 2, 2);
+
+  // --- Einstellungen ---
+  const settings = $('settings'), face = $('face');
+  const salaryIn = $('salary'), hoursIn = $('hours'), startIn = $('start');
+  const modeBtns = document.querySelectorAll('.modes button');
+  function syncMode(){ modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode))); }
+  function fillSettings(){
+    salaryIn.value = state.salary > 0 ? plain.format(state.salary) : '';
+    hoursIn.value = plain.format(state.hours);
+    startIn.value = state.start;
+    syncMode();
+  }
+  function openSettings(){ fillSettings(); settings.hidden = false; face.hidden = true; }
+  function closeSettings(){ settings.hidden = true; face.hidden = false; }
+
+  salaryIn.addEventListener('input', () => { state.salary = parseNum(salaryIn.value); save(); });
+  hoursIn.addEventListener('input', () => { const n = parseNum(hoursIn.value); if (n > 0) state.hours = Math.min(n, 120); save(); });
+  startIn.addEventListener('input', () => { if (startIn.value){ state.start = startIn.value; save(); } });
+  modeBtns.forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; syncMode(); save(); }));
+  $('done').addEventListener('click', closeSettings);
+
+  let pressTimer = null;
+  face.addEventListener('pointerdown', () => { pressTimer = setTimeout(openSettings, 550); });
+  ['pointerup','pointerleave','pointercancel'].forEach(ev => face.addEventListener(ev, () => clearTimeout(pressTimer)));
+
+  if (!(state.salary > 0)) openSettings();
+
+  // --- Takt ---
+  let lastSlow = 0;
+  function tick(t){
+    const now = new Date();
+    if (!settings.hidden){ requestAnimationFrame(tick); return; }
+    const y = now.getFullYear(), m = now.getMonth();
+    const monthVal = monthPay(y, m, new Date(y, m, 1).getTime(), now.getTime());
+    renderOdo(monthVal);
+    if (!lastSlow || t - lastSlow > 1000){
+      lastSlow = t;
+      const r = rates(now);
+      $('odoText').textContent = 'Diesen Monat verdient: ' + eur2.format(monthVal);
+      $('rate').innerHTML = state.salary > 0 ? '<b>' + eur2.format(r.hour) + '</b> / Std.' : 'Zahl lang drücken zum Einrichten';
+      $('dot').classList.toggle('on', isWorking(now));
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>

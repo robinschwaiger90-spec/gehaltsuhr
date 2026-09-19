@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gehaltsuhr</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141C30">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gehaltsuhr">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E8EDF1; --ink:#1C2640; --muted:#66738A; --rule:#C3CDD6;
+  --mint:#2F7D66; --mint-soft:#D3E6DD; --brass:#B8901C;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141C30; --ink:#E6ECF2; --muted:#8F9CB2; --rule:#2C3754;
+    --mint:#7CC7AE; --mint-soft:#1D3836; --brass:#E0B84A; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141C30; --ink:#E6ECF2; --muted:#8F9CB2; --rule:#2C3754;
+  --mint:#7CC7AE; --mint-soft:#1D3836; --brass:#E0B84A; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--paper)}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+}
+main{max-width:40rem; margin:0 auto; padding:clamp(1.25rem,5vw,3rem) clamp(1rem,5vw,2rem) 4rem}
+h1{font-size:1rem; font-weight:600; margin:0 0 1.75rem; color:var(--muted)}
+h2{font-size:1.1rem; margin:0 0 .75rem}
+.sentence{font-size:clamp(1.3rem,5.4vw,1.85rem); line-height:1.6; margin:0 0 .5rem}
+.sentence input{
+  font:inherit; font-weight:800; color:var(--ink); background:transparent;
+  border:0; border-bottom:3px solid var(--mint); border-radius:0;
+  padding:0 .1em; text-align:right; min-width:2.5ch;
+}
+.sentence input[type="date"]{text-align:left; width:auto; font-size:.85em}
+.hint{color:var(--muted); font-size:.95rem; margin:0 0 1.5rem}
+input:focus-visible, button:focus-visible{outline:3px solid var(--brass); outline-offset:3px}
+
+.mode{display:inline-flex; border:2px solid var(--ink); border-radius:999px; padding:3px; gap:3px; margin-bottom:2.5rem}
+.mode button{font:inherit; font-weight:600; font-size:.95rem; border:0; border-radius:999px; padding:.45rem .95rem; background:transparent; color:var(--ink); cursor:pointer}
+.mode button[aria-pressed="true"]{background:var(--ink); color:var(--paper)}
+
+.meter{border-top:2px solid var(--ink); border-bottom:2px solid var(--ink); padding:1.1rem 0 1.25rem; margin-bottom:2rem}
+.meter-head{display:flex; justify-content:space-between; gap:1rem; align-items:baseline; margin-bottom:.6rem; flex-wrap:wrap}
+.meter-head strong{font-size:1.05rem}
+.meter-head span{color:var(--muted)}
+.odo{font-weight:800; letter-spacing:-.02em; white-space:nowrap; overflow-x:auto; overflow-y:hidden; line-height:1; padding:.08em 0}
+.odo.big{font-size:clamp(2.3rem,12vw,5rem)}
+.odo.mid{font-size:clamp(1.8rem,8.5vw,3.2rem)}
+.col,.sep{display:inline-block; height:1em; line-height:1; vertical-align:top}
+.col{overflow:hidden;
+  -webkit-mask-image:linear-gradient(transparent, #000 14%, #000 86%, transparent);
+          mask-image:linear-gradient(transparent, #000 14%, #000 86%, transparent)}
+.strip{display:block; will-change:transform}
+.strip span{display:block; height:1em; text-align:center}
+.col.sub{color:var(--mint)}
+.sep.cur{margin-left:.2em; font-weight:600}
+.bar{height:8px; background:var(--rule); border-radius:99px; overflow:hidden; margin:1rem 0 .6rem}
+.bar i{display:block; height:100%; width:0; background:var(--mint)}
+.status{margin:0; color:var(--muted)}
+.status b{color:var(--ink); font-weight:600}
+
+.rates{display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem 1rem; margin:0 0 2.5rem}
+@media (min-width:560px){.rates{grid-template-columns:repeat(4,1fr)}}
+.rates dt{color:var(--muted); font-size:.9rem; margin-bottom:.2rem}
+.rates dd{margin:0; font-size:1.25rem; font-weight:600}
+
+.today{background:var(--mint-soft); border-radius:14px; padding:1.1rem 1.2rem; margin-bottom:2.75rem}
+.today label{display:flex; align-items:center; gap:.6rem; font-weight:600; margin-bottom:.5rem; flex-wrap:wrap}
+.today input{font:inherit; color:var(--ink); background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:.3rem .5rem}
+.today p{margin:0; font-size:1.15rem}
+
+.total{margin-bottom:2.75rem}
+.total .odo{margin:.4rem 0 .6rem}
+.total .sentence{font-size:clamp(1.15rem,4.6vw,1.5rem)}
+
+.things{list-style:none; padding:0; margin:0}
+.things li{display:flex; justify-content:space-between; gap:1rem; padding:.7rem 0; border-top:1px solid var(--rule)}
+.things li span:last-child{font-weight:600; text-align:right}
+.sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Gehaltsuhr</h1>
+
+  <p class="sentence">
+    Ich verdiene
+    <input id="salary" type="text" inputmode="decimal" autocomplete="off" aria-label="Monatsgehalt in Euro"> €
+    im Monat und arbeite
+    <input id="hours" type="text" inputmode="numeric" autocomplete="off" aria-label="Arbeitsstunden pro Woche">
+    Stunden pro Woche.
+  </p>
+  <p class="hint">Ob brutto oder netto: Gib ein, was du ticken sehen willst.</p>
+
+  <div class="mode" role="group" aria-label="Wie gezählt wird">
+    <button type="button" data-mode="work">Nur Arbeitszeit</button>
+    <button type="button" data-mode="always">Rund um die Uhr</button>
+  </div>
+
+  <section class="meter" aria-labelledby="monthTitle">
+    <div class="meter-head">
+      <strong id="monthTitle">Diesen Monat</strong>
+      <span id="dayOfMonth"></span>
+    </div>
+    <div class="odo big" id="odoMonth" aria-hidden="true"></div>
+    <p class="sr-only" id="monthText"></p>
+    <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+    <p class="status" id="status"></p>
+  </section>
+
+  <dl class="rates">
+    <div><dt>pro Sekunde</dt><dd id="rSec"></dd></div>
+    <div><dt>pro Minute</dt><dd id="rMin"></dd></div>
+    <div><dt>pro Stunde</dt><dd id="rHour"></dd></div>
+    <div><dt id="rDayLabel">pro Arbeitstag</dt><dd id="rDay"></dd></div>
+  </dl>
+
+  <section class="today" id="today">
+    <label>Arbeitsbeginn <input id="start" type="time"></label>
+    <p id="todayOut"></p>
+  </section>
+
+  <section class="total" aria-labelledby="totalTitle">
+    <h2 id="totalTitle">Insgesamt verdient</h2>
+    <p class="sentence">Ich arbeite hier seit <input id="since" type="date" aria-label="Erster Arbeitstag"></p>
+    <div class="odo mid" id="odoTotal" aria-hidden="true" hidden></div>
+    <p class="sr-only" id="totalText"></p>
+    <p class="hint" id="totalHint">Trag deinen ersten Arbeitstag ein, dann rechnet die Uhr alles seitdem zusammen.</p>
+  </section>
+
+  <h2>So lange arbeitest du für</h2>
+  <ul class="things" id="things"></ul>
+</main>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const state = { salary: 3500, hours: 40, mode: 'work', start: '09:00', since: '' };
+  try {
+    const saved = JSON.parse(localStorage.getItem('gehaltsuhr') || 'null');
+    if (saved && typeof saved === 'object') Object.assign(state, saved);
+  } catch (e) {}
+  function save(){ try { localStorage.setItem('gehaltsuhr', JSON.stringify(state)); } catch (e) {} }
+
+  const eur2 = new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR' });
+  const eur4 = new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR', minimumFractionDigits:4, maximumFractionDigits:4 });
+  const plain = new Intl.NumberFormat('de-DE', { maximumFractionDigits:2 });
+  const WD = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+
+  function parseNum(str){
+    let s = String(str).replace(/[\s€]/g, '');
+    if (/^\d+\.\d{1,2}$/.test(s)) return parseFloat(s);
+    s = s.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return isFinite(n) && n > 0 ? n : 0;
+  }
+  function startHM(){ const [h, m] = (state.start || '09:00').split(':').map(Number); return [h || 0, m || 0]; }
+  function dayMs(){ return Math.min(Math.max(state.hours || 40, 1), 120) / 5 * 3600000; }
+
+  // --- Kernrechnung: Anteil des Monatsgehalts zwischen from und to (ms) ---
+  function monthInfo(y, m){
+    const a = new Date(y, m, 1).getTime(), b = new Date(y, m + 1, 1).getTime();
+    const days = new Date(y, m + 1, 0).getDate();
+    let workdays = 0;
+    for (let d = 1; d <= days; d++){ const w = new Date(y, m, d).getDay(); if (w !== 0 && w !== 6) workdays++; }
+    return { a, b, days, workdays };
+  }
+  function monthPay(y, m, from, to){
+    const info = monthInfo(y, m);
+    const A = Math.max(from, info.a), B = Math.min(to, info.b);
+    if (B <= A || !(state.salary > 0)) return 0;
+    if (state.mode === 'always') return state.salary * (B - A) / (info.b - info.a);
+    const [sh, sm] = startHM(), len = dayMs();
+    let worked = 0;
+    for (let d = 1; d <= info.days; d++){
+      const w = new Date(y, m, d).getDay();
+      if (w === 0 || w === 6) continue;
+      const ws = new Date(y, m, d, sh, sm).getTime(), we = ws + len;
+      worked += Math.max(0, Math.min(we, B) - Math.max(ws, A));
+    }
+    return info.workdays ? state.salary * worked / (info.workdays * len) : 0;
+  }
+  function rates(now){
+    const y = now.getFullYear(), m = now.getMonth(), info = monthInfo(y, m);
+    if (state.mode === 'always'){
+      const sec = state.salary / ((info.b - info.a) / 1000);
+      return { sec, min: sec*60, hour: sec*3600, day: sec*86400, dayLabel:'pro Tag' };
+    }
+    const hour = state.salary / (info.workdays * dayMs() / 3600000);
+    return { sec: hour/3600, min: hour/60, hour, day: hour * dayMs() / 3600000, dayLabel:'pro Arbeitstag' };
+  }
+
+  // --- Zählwerk ---
+  function makeOdo(el, decimals, subFrom){
+    let built = null, cols = [];
+    function addSep(ch, cls){ const s = document.createElement('span'); s.className = 'sep' + (cls ? ' ' + cls : ''); s.textContent = ch; el.appendChild(s); }
+    function addCol(place, cls){
+      const c = document.createElement('span'); c.className = 'col' + (cls ? ' ' + cls : '');
+      const strip = document.createElement('span'); strip.className = 'strip';
+      for (let d = 0; d <= 10; d++){ const x = document.createElement('span'); x.textContent = d % 10; strip.appendChild(x); }
+      c.appendChild(strip); el.appendChild(c); cols.push({ place, strip });
+    }
+    function build(n){
+      el.innerHTML = ''; cols = [];
+      for (let i = n - 1; i >= 0; i--){ addCol(Math.pow(10, i)); if (i > 0 && i % 3 === 0) addSep('.'); }
+      addSep(',');
+      for (let i = 1; i <= decimals; i++) addCol(Math.pow(10, -i), i >= subFrom ? 'sub' : '');
+      addSep('€', 'cur'); built = n;
+    }
+    return function render(v){
+      const n = Math.max(1, String(Math.floor(v)).length);
+      if (n !== built) build(n);
+      const last = cols.length - 1;
+      for (let i = 0; i < cols.length; i++){
+        const c = cols[i], u = v / c.place + 1e-9, fl = Math.floor(u), d = fl % 10, frac = u - fl;
+        let shift = d;
+        if (!reduce){ if (i === last) shift = d + frac; else if (frac > 0.9) shift = d + (frac - 0.9) * 10; }
+        c.strip.style.transform = 'translateY(' + (-shift) + 'em)';
+      }
+    };
+  }
+  const renderMonth = makeOdo($('odoMonth'), 4, 3);
+  const renderTotal = makeOdo($('odoTotal'), 2, 3);
+
+  // --- Gesamtsumme: abgeschlossene Monate werden zwischengespeichert ---
+  let cacheKey = '', cacheSum = 0;
+  function sinceMs(){
+    if (!state.since) return null;
+    const [y, m, d] = state.since.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d).getTime();
+  }
+  function totalEarned(now){
+    const s = sinceMs(); if (s === null) return null;
+    const t = now.getTime(); if (s >= t) return 0;
+    const cy = now.getFullYear(), cm = now.getMonth();
+    const key = [state.salary, state.hours, state.mode, state.start, state.since, cy, cm].join('|');
+    if (key !== cacheKey){
+      cacheKey = key; cacheSum = 0;
+      const sd = new Date(s); let y = sd.getFullYear(), m = sd.getMonth();
+      const curStart = new Date(cy, cm, 1).getTime();
+      let guard = 0;
+      while ((y < cy || (y === cy && m < cm)) && guard++ < 1200){
+        cacheSum += monthPay(y, m, s, curStart);
+        m++; if (m > 11){ m = 0; y++; }
+      }
+    }
+    return cacheSum + monthPay(cy, cm, s, t);
+  }
+
+  function fmtDur(s){
+    if (!isFinite(s)) return '–';
+    if (s < 1) return 'unter 1 Sek.';
+    if (s < 60) return Math.round(s) + ' Sek.';
+    if (s < 3600){ const m = Math.floor(s/60); return m + ' Min. ' + Math.round(s - m*60) + ' Sek.'; }
+    const h = Math.floor(s/3600); return h + ' Std. ' + Math.round((s - h*3600)/60) + ' Min.';
+  }
+  function hm(){ const [h, m] = startHM(); return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
+
+  function workStatus(now){
+    const w = now.getDay(), [sh, sm] = startHM();
+    const ws = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm).getTime(), we = ws + dayMs(), t = now.getTime();
+    if (w === 0 || w === 6) return 'Wochenende. Die Uhr läuft am Montag um ' + hm() + ' weiter.';
+    if (t < ws) return 'Die Uhr startet heute um ' + hm() + '.';
+    if (t >= we) return 'Feierabend. Die Uhr läuft ' + (w === 5 ? 'am Montag' : 'morgen') + ' um ' + hm() + ' weiter.';
+    return '<b>Läuft gerade.</b> Feierabend um ' + new Date(we).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }) + '.';
+  }
+
+  const things = [['Einen Kaffee', 3.5], ['Einen Döner', 7.5], ['Ein Kinoticket', 13], ['Eine Pizza beim Italiener', 14], ['Einen Wocheneinkauf', 80]];
+
+  function updateSlow(now, monthVal, totalVal){
+    const r = rates(now), y = now.getFullYear(), m = now.getMonth(), info = monthInfo(y, m);
+    const monthName = now.toLocaleDateString('de-DE', { month:'long' });
+    $('monthTitle').textContent = 'Im ' + monthName;
+    $('dayOfMonth').textContent = 'Tag ' + now.getDate() + ' von ' + info.days;
+    $('bar').style.width = (state.salary > 0 ? Math.min(100, monthVal / state.salary * 100) : 0) + '%';
+    $('monthText').textContent = 'Im ' + monthName + ' bisher verdient: ' + eur2.format(monthVal);
+
+    let status = state.salary > 0 ? 'Noch ' + eur2.format(Math.max(0, state.salary - monthVal)) + ' bis zum vollen Gehalt. Am 1. startet die Uhr wieder bei null.' : 'Trag oben dein Gehalt ein.';
+    if (state.mode === 'work' && state.salary > 0) status = workStatus(now) + ' ' + status;
+    $('status').innerHTML = status;
+
+    $('rSec').textContent = eur4.format(r.sec);
+    $('rMin').textContent = eur2.format(r.min);
+    $('rHour').textContent = eur2.format(r.hour);
+    $('rDay').textContent = eur2.format(r.day);
+    $('rDayLabel').textContent = r.dayLabel;
+
+    const list = $('things'); list.innerHTML = '';
+    things.forEach(([name, price]) => {
+      const li = document.createElement('li');
+      const a = document.createElement('span'); a.textContent = name + ' (' + eur2.format(price) + ')';
+      const b = document.createElement('span'); b.textContent = r.sec > 0 ? fmtDur(price / r.sec) : '–';
+      li.append(a, b); list.appendChild(li);
+    });
+
+    const today = $('today');
+    if (state.mode !== 'work'){ today.hidden = true; }
+    else {
+      today.hidden = false;
+      const d0 = new Date(y, m, now.getDate()).getTime();
+      const w = now.getDay();
+      $('todayOut').textContent = (w === 0 || w === 6)
+        ? 'Heute ist ' + WD[w] + '. Ein voller Arbeitstag bringt dir ' + eur2.format(r.day) + '.'
+        : 'Heute schon verdient: ' + eur2.format(monthPay(y, m, d0, now.getTime())) + ' von ' + eur2.format(r.day) + '.';
+    }
+
+    const odoT = $('odoTotal'), hint = $('totalHint');
+    if (totalVal === null){
+      odoT.hidden = true;
+      hint.textContent = 'Trag deinen ersten Arbeitstag ein, dann rechnet die Uhr alles seitdem zusammen.';
+    } else {
+      odoT.hidden = false;
+      $('totalText').textContent = 'Insgesamt verdient: ' + eur2.format(totalVal);
+      const s = new Date(sinceMs());
+      const months = (now.getFullYear() - s.getFullYear()) * 12 + now.getMonth() - s.getMonth();
+      hint.textContent = (months > 0 ? 'Das sind rund ' + months + ' Monate. ' : '') + 'Gerechnet mit deinem heutigen Gehalt, ohne Urlaub, Feiertage und Gehaltserhöhungen.';
+    }
+  }
+
+  // --- Eingaben ---
+  const salaryIn = $('salary'), hoursIn = $('hours'), startIn = $('start'), sinceIn = $('since');
+  function sizeInput(el){ el.style.width = (Math.max(el.value.length, 2) + 0.6) + 'ch'; }
+  salaryIn.value = plain.format(state.salary); sizeInput(salaryIn);
+  hoursIn.value = plain.format(state.hours); sizeInput(hoursIn);
+  startIn.value = state.start;
+  sinceIn.value = state.since || '';
+  sinceIn.max = new Date().toISOString().slice(0, 10);
+
+  function changed(){ save(); lastSlow = 0; }
+  salaryIn.addEventListener('input', () => { state.salary = parseNum(salaryIn.value); sizeInput(salaryIn); changed(); });
+  salaryIn.addEventListener('blur', () => { if (state.salary > 0) salaryIn.value = plain.format(state.salary); sizeInput(salaryIn); });
+  hoursIn.addEventListener('input', () => { const n = parseNum(hoursIn.value); if (n > 0) state.hours = Math.min(n, 120); sizeInput(hoursIn); changed(); });
+  hoursIn.addEventListener('blur', () => { hoursIn.value = plain.format(state.hours); sizeInput(hoursIn); });
+  startIn.addEventListener('input', () => { if (startIn.value){ state.start = startIn.value; changed(); } });
+  sinceIn.addEventListener('input', () => { state.since = sinceIn.value; changed(); });
+
+  const modeBtns = document.querySelectorAll('.mode button');
+  function syncMode(){ modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode))); }
+  modeBtns.forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; syncMode(); changed(); }));
+  syncMode();
+
+  // --- Takt ---
+  let lastSlow = 0;
+  function tick(t){
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const monthVal = monthPay(y, m, new Date(y, m, 1).getTime(), now.getTime());
+    const totalVal = totalEarned(now);
+    renderMonth(monthVal);
+    if (totalVal !== null) renderTotal(totalVal);
+    if (!lastSlow || t - lastSlow > 1000){ lastSlow = t; updateSlow(now, monthVal, totalVal); }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
