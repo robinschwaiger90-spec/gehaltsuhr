@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "io.github.robinschwaiger90_spec.twa",
-        "sha256_cert_fingerprints": ["3A:7B:92:32:7B:26:43:D7:06:46:F1:7C:82:1E:CC:C8:A2:AC:99:E0:D0:DE:19:BB:D9:B0:BE:72:78:1D:04:B5"]
+        "sha256_cert_fingerprints": ["F3:6B:0C:66:45:8C:40:25:2D:AD:BF:52:9E:2A:4C:50:BA:BC:78:96:80:F3:58:07:C0:DF:56:1D:55:58:06:61"]
       }
     }]
