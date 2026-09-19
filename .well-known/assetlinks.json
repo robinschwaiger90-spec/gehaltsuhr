@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.robinschwaiger90_spec.twa",
+        "sha256_cert_fingerprints": ["3A:7B:92:32:7B:26:43:D7:06:46:F1:7C:82:1E:CC:C8:A2:AC:99:E0:D0:DE:19:BB:D9:B0:BE:72:78:1D:04:B5"]
+      }
+    }]
